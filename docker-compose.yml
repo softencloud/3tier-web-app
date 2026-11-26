@@ -1,0 +1,57 @@
+
+services:
+  database:
+    image: mysql:8.0
+    container_name: shopping-database
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: shopping_db
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - 3tier-network
+
+  backend:
+    build:
+      context: ./backend
+    container_name: shopping-backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: database
+      DB_USER: root
+      DB_PASSWORD: rootpassword
+      DB_NAME: shopping_db
+    ports:
+      - "5000:5000"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - 3tier-network
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: shopping-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - 3tier-network
+
+volumes:
+  mysql_data:
+
+networks:
+  3tier-network:
+    name: 3tier-network
+    driver: bridge
